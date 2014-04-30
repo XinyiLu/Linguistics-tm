@@ -78,11 +78,9 @@ public class PLSA {
 				int count=Integer.parseInt(line);
 				while(count>0){
 					line=reader.readLine();
-					assert(line!=null);
 					count-=saveLineToSet(doc,line);
 				}
 				doc++;
-				assert(count==0);
 			}
 			//close the buffered reader
 			reader.close();
@@ -111,7 +109,6 @@ public class PLSA {
 		
 		HashSet<String> docSubmap=docSet.get(doc);
 		for(String word:list){
-			assert(!docSubmap.contains(word));
 			docSubmap.add(word);
 			for(int topic=0;topic<numOfTopics;topic++){
 				HashMap<String,Unit> tauSubmap=tauMap.get(topic);
@@ -138,6 +135,7 @@ public class PLSA {
 			for(Unit unit:docMap){
 				unit.prob=mean+rand.nextGaussian()*variance;
 			}
+			
 		}
 	}
 	
@@ -150,10 +148,9 @@ public class PLSA {
 				double p=0;
 				ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
 				for(int topic=0;topic<numOfTopics;topic++){
-					assert(tauMap.get(topic).containsKey(word));
 					p+=deltaSubmap.get(topic).prob*tauMap.get(topic).get(word).prob;
 				}
-				assert(p>0);
+				
 				for(int topic=0;topic<numOfTopics;topic++){
 					double q=deltaSubmap.get(topic).prob*tauMap.get(topic).get(word).prob/p;
 					deltaSubmap.get(topic).number+=q;
@@ -222,13 +219,15 @@ public class PLSA {
 	public void trainParameters(double precision){
 		initiateParameterMaps();
 		double prev=0;
-		double cur=getLogLikelihood();
+		double cur=0;
+		int count=0;
 		do{
+			count++;
 			prev=cur;
 			EM();
 			cur=getLogLikelihood();
 			System.out.println(cur);
-		}while(Math.abs((cur-prev))>=precision);
+		}while(count<numOfTopics);
 		
 	}
 	
@@ -300,8 +299,8 @@ public class PLSA {
 		PLSA model=new PLSA(50);
 		model.parseTrainingFile(args[0]);
 		model.trainParameters(0.01);
-		//model.printDeltaProb(16);
-		//model.printMostProbableWords(5, 15);
+		model.printDeltaProb(16);
+		model.printMostProbableWords(1, 15);
 		System.out.println("Finished");
 	}
 }
