@@ -10,7 +10,7 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Random;
 
-public class PLSA {
+public class Gibbs {
 
 	class Unit{
 		double prob;
@@ -26,6 +26,20 @@ public class PLSA {
 			number=n;
 		}
 	}
+	
+	class WordUnit{
+		ArrayList<Unit> list;
+		Unit unit;
+		
+		public WordUnit(int topics){
+			list=new ArrayList<Unit>();
+			for(int i=0;i<topics;i++){
+				list.add(new Unit());
+			}
+			unit=new Unit();
+		}
+		
+	} 
 	
 	@SuppressWarnings("rawtypes")
 	class SmoothedUnit implements Comparable{
@@ -50,16 +64,16 @@ public class PLSA {
 	}
 	
 	ArrayList<ArrayList<Unit>> deltaMap;
-	ArrayList<HashMap<String,Unit>> tauMap;
+	ArrayList<HashMap<String,WordUnit>> tauMap;
 	ArrayList<HashSet<String>> docSet;
 	int numOfTopics;
 	
-	public PLSA(int num){
+	public Gibbs(int num){
 		numOfTopics=num;
 		deltaMap=new ArrayList<ArrayList<Unit>>();
-		tauMap=new ArrayList<HashMap<String,Unit>>();
+		tauMap=new ArrayList<HashMap<String,WordUnit>>();
 		for(int i=0;i<numOfTopics;i++){
-			tauMap.add(new HashMap<String,Unit>());
+			tauMap.add(new HashMap<String,WordUnit>());
 		}
 		docSet=new ArrayList<HashSet<String>>();
 	}
@@ -105,15 +119,20 @@ public class PLSA {
 				deltaSubmap.add(new Unit());
 			}
 			deltaMap.add(deltaSubmap);
+			
 		}
 		
 		HashSet<String> docSubmap=docSet.get(doc);
 		for(String word:list){
 			docSubmap.add(word);
-			for(int topic=0;topic<numOfTopics;topic++){
-				HashMap<String,Unit> tauSubmap=tauMap.get(topic);
+			for(int i=0;i<numOfTopics;i++){
+				HashMap<String,WordUnit> tauSubmap=tauMap.get(i);
 				if(!tauSubmap.containsKey(word)){
-					tauSubmap.put(word,new Unit());
+					tauSubmap.put(word,new WordUnit(numOfTopics));
+				}
+				ArrayList<Unit> wordList=tauSubmap.get(word).list;
+				if(wordList.size()==doc){
+					wordList.add(new Unit());
 				}
 			}
 		}
@@ -122,22 +141,22 @@ public class PLSA {
 	}
 	
 	public void initiateParameterMaps(){
-		for(HashMap<String,Unit> submap:tauMap){
-			for(String word:submap.keySet()){
-				submap.get(word).prob=1.0;
-			}
-		}
 		
-		Random rand=new Random();
-		double mean=1.0f;
-		double variance=0.02f;
-		for(ArrayList<Unit> docMap:deltaMap){
-			for(Unit unit:docMap){
-				unit.prob=mean+rand.nextGaussian()*variance;
+		Random rand=new Random(numOfTopics);
+		for(int doc=0;doc<docSet.size();doc++){
+			HashSet<String> words=docSet.get(doc);
+			ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
+			for(String word:words){
+				int topic=rand.nextInt();
+				tauMap.get(topic).get(word).list.get(doc).number++;
+				deltaSubmap.get(topic).number++;
 			}
-			
 		}
 	}
+	
+	public 
+	
+	
 	
 	public void EM(){
 		//E-step
