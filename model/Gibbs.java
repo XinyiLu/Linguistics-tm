@@ -55,24 +55,34 @@ public class Gibbs {
 		}
 	}
 	
-	ArrayList<ArrayList<Unit>> deltaMap;
-	ArrayList<HashMap<String,Unit>> tauMap;
-	ArrayList<HashMap<String,Topic>> docSet;
-	ArrayList<Integer> tauSum;
+	Unit[][] deltaMap;
+	HashMap<String,Unit[]> tauMap;
+	HashMap<String,Topic>[] docSet;
 	int numOfTopics;
+	int numOfDocs;
 	Random rand;
+	double alpha;
 	
-	public Gibbs(int num){
+	@SuppressWarnings("unchecked")
+	public Gibbs(int num,double al,int docs){
 		numOfTopics=num;
-		deltaMap=new ArrayList<ArrayList<Unit>>();
-		tauMap=new ArrayList<HashMap<String,Unit>>();
-		tauSum=new ArrayList<Integer>();
-		for(int i=0;i<numOfTopics;i++){
-			tauMap.add(new HashMap<String,Unit>());
-			tauSum.add(0);
+		alpha=al;
+		numOfDocs=docs;
+		deltaMap=new Unit[docs][num];
+		for(int doc=0;doc<docs;doc++){
+			for(int t=0;t<num;t++){
+				deltaMap[doc][t]=new Unit();
+			}
 		}
-		docSet=new ArrayList<HashMap<String,Topic>>();
+		tauMap=new HashMap<String,Unit[]>();
+		
+		docSet=(HashMap<String,Topic>[])new HashMap[numOfDocs];
+		for(int t=0;t<numOfDocs;t++){
+			docSet[t]=new HashMap<String,Topic>();
+		}
+		
 		rand=new Random();
+		
 	}
 	
 	public void parseTrainingFile(String fileName){
@@ -101,6 +111,13 @@ public class Gibbs {
 		}
 	}
 	
+	public void initiateArray(Unit[] list){
+		for(int i=0;i<list.length;i++){
+			list[i]=new Unit();
+		}
+	}
+	
+	
 	public int saveLineToSet(int doc,String line){
 		String[] words=line.split(" ");
 		ArrayList<String> list=new ArrayList<String>();
@@ -109,24 +126,13 @@ public class Gibbs {
 				list.add(word);
 		}
 		
-		if(doc==docSet.size()){
-			docSet.add(new HashMap<String,Topic>());
-			ArrayList<Unit> deltaSubmap=new ArrayList<Unit>();
-			for(int i=0;i<numOfTopics;i++){
-				deltaSubmap.add(new Unit());
-			}
-			deltaMap.add(deltaSubmap);
-			
-		}
 		
-		HashMap<String,Topic> docSubmap=docSet.get(doc);
+		HashMap<String,Topic> docSubmap=docSet[doc];
 		for(String word:list){
 			docSubmap.put(word,new Topic(numOfTopics));
-			for(int i=0;i<numOfTopics;i++){
-				HashMap<String,Unit> tauSubmap=tauMap.get(i);
-				if(!tauSubmap.containsKey(word)){
-					tauSubmap.put(word,new Unit());
-				}
+			if(!tauMap.containsKey(word)){
+				tauMap.put(word,new Unit[numOfTopics]);
+				initiateArray(tauMap.get(word));
 			}
 		}
 		
@@ -134,29 +140,51 @@ public class Gibbs {
 	}
 	
 	public void initiateParameterMaps(){
-		for(int doc=0;doc<docSet.size();doc++){
-			HashMap<String,Topic> words=docSet.get(doc);
-			ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
+		for(int doc=0;doc<numOfDocs;doc++){
+			HashMap<String,Topic> words=docSet[doc];
+			Unit[] deltaSubmap=deltaMap[doc];
 			for(String word:words.keySet()){
 				int topic=rand.nextInt(numOfTopics);
-				tauMap.get(topic).get(word).number++;
-				deltaSubmap.get(topic).number++;
+				tauMap.get(word)[topic].number++;
+				deltaSubmap[topic].number++;
 				words.get(word).topic=topic;
-				tauSum.set(topic,tauSum.get(topic)+1);
+			}
+		}
+		updateProbs();
+	}
+	
+	public void updateProbs(){
+		int V=tauMap.size();
+		for(int doc=0;doc<numOfDocs;doc++){
+			Unit[] deltaSubmap=deltaMap[doc];
+			int docSum=docSet[doc].size();
+			for(int topic=0;topic<numOfTopics;topic++){
+				Unit unit=deltaSubmap[topic];
+				unit.prob=(unit.number+alpha)/(numOfTopics*alpha+docSum);
+			}
+		}
+		
+		for(int topic=0;topic<numOfTopics;topic++){
+			int sum=0;
+			for(String word:tauMap.keySet()){
+				sum+=tauMap.get(word)[topic].number;
+			}
+			for(String word:tauMap.keySet()){
+				Unit unit=tauMap.get(word)[topic];
+				unit.prob=(unit.number+alpha)/(sum+V*alpha);
 			}
 		}
 	}
 	
-	public void GibbsRecurringHelper(double alpha){
-		int V=tauMap.get(0).size();
-		for(int doc=0;doc<docSet.size();doc++){
-			HashMap<String,Topic> words=docSet.get(doc);
-			ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
+	public void GibbsRecurringHelper(){
+		int V=tauMap.size();
+		for(int doc=0;doc<numOfDocs;doc++){
+			HashMap<String,Topic> words=docSet[doc];
+			Unit[] deltaSubmap=deltaMap[doc];
 			for(String word:words.keySet()){
 				int topic=words.get(word).topic;
-				tauMap.get(topic).get(word).number--;
-				deltaSubmap.get(topic).number--;
-				tauSum.set(topic,tauSum.get(topic)-1);
+				tauMap.get(word)[topic].number--;
+				deltaSubmap[topic].number--;
 				//estimate delta probability
 				double docSum=words.size();
 				/*for(int t=0;t<numOfTopics;t++){
@@ -164,45 +192,43 @@ public class Gibbs {
 				}*/
 				
 				for(int t=0;t<numOfTopics;t++){
-					Unit unit=deltaSubmap.get(topic);
+					Unit unit=deltaSubmap[topic];
 					unit.prob=(unit.number+alpha)/(docSum+alpha*numOfTopics);
 				}
 				//estimate tau probability
-				double topicSum=tauSum.get(topic);
-				HashMap<String,Unit> tauSubmap=tauMap.get(topic);
-				/*for(String tWord:tauSubmap.keySet()){
-					topicSum+=tauSubmap.get(tWord).number;
-				}*/
+				double topicSum=0;
+				for(String tWord:tauMap.keySet()){
+					topicSum+=tauMap.get(tWord)[topic].number;
+				}
 				
-				for(String tWord:tauSubmap.keySet()){
-					Unit unit=tauSubmap.get(tWord);
+				for(String tWord:tauMap.keySet()){
+					Unit unit=tauMap.get(tWord)[topic];
 					unit.prob=(unit.number+alpha)/(topicSum+alpha*V);
 				}
 				
 				int newTopic=getRandomTopicForWord(doc,word);
 				words.get(word).topic=newTopic;
-				deltaSubmap.get(newTopic).number++;
-				tauMap.get(newTopic).get(word).number++;
-				tauSum.set(newTopic,tauSum.get(newTopic)+1);
+				deltaSubmap[newTopic].number++;
+				tauMap.get(word)[newTopic].number++;
 			}
 		}
+		updateProbs();
 	}
 	
 	public int getRandomTopicForWord(int doc,String word){
 		double probSum=0;
 		for(int topic=0;topic<numOfTopics;topic++){
-			probSum+=tauMap.get(topic).get(word).prob;
+			probSum+=tauMap.get(word)[topic].prob;
 		}
 		double number=rand.nextDouble()*probSum;
 		int topic=0;
 		for(;topic<numOfTopics;topic++){
-			double prob=tauMap.get(topic).get(word).prob;
+			double prob=tauMap.get(word)[topic].prob;
 			if(prob>number){
 				break;
 			}
 			number-=prob;
 		}
-		
 		return topic;
 	}
 	
@@ -211,13 +237,13 @@ public class Gibbs {
 	public double getLogLikelihood(){
 		double sum=0;
 		
-		for(int doc=0;doc<deltaMap.size();doc++){
-			ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
-			HashMap<String,Topic> docSubset=docSet.get(doc);	
+		for(int doc=0;doc<numOfDocs;doc++){
+			Unit[] deltaSubmap=deltaMap[doc];
+			HashMap<String,Topic> docSubset=docSet[doc];	
 			for(String word:docSubset.keySet()){
 				double wordProb=0;
 				for(int topic=0;topic<numOfTopics;topic++){
-					wordProb+=deltaSubmap.get(topic).prob*tauMap.get(topic).get(word).prob;
+					wordProb+=deltaSubmap[topic].prob*tauMap.get(word)[topic].prob;
 				}
 				sum+=Math.log(wordProb);
 			}
@@ -226,13 +252,13 @@ public class Gibbs {
 		return sum;
 	}
 	
-	public void trainParameters(double precision,double alpha){
+	public void trainParameters(double precision){
 		initiateParameterMaps();
 		double prev=0;
 		double cur=0;
 		do{
 			prev=cur;
-			GibbsRecurringHelper(alpha);
+			GibbsRecurringHelper();
 			cur=getLogLikelihood();
 			System.out.println(cur);
 		}while(Math.abs((cur-prev)/cur)>=precision);
@@ -240,14 +266,14 @@ public class Gibbs {
 	}
 	
 	public void printDeltaProb(int doc){
-		ArrayList<Unit> submap=deltaMap.get(doc);
+		Unit[] submap=deltaMap[doc];
 		for(Unit unit:submap){
 			System.out.println(unit.prob);
 		}
 	}
 	
 		
-	public ArrayList<ArrayList<SmoothedUnit>> getSmoothedTauProb(double alpha){
+	/*public ArrayList<ArrayList<SmoothedUnit>> getSmoothedTauProb(double alpha){
 		ArrayList<ArrayList<SmoothedUnit>> smoothedMap=new ArrayList<ArrayList<SmoothedUnit>>();
 		for(HashMap<String,Unit> tauSubmap:tauMap){
 			double sum=0;
@@ -302,12 +328,12 @@ public class Gibbs {
 			System.out.println();
 		}
 	}
-	
+	*/
 	public static void main(String[] args){
-		Gibbs model=new Gibbs(50);
+		Gibbs model=new Gibbs(50,0.5,1000);
 		model.parseTrainingFile(args[0]);
-		model.trainParameters(0.01,0.5);
-		model.printDeltaProb(16);
+		model.trainParameters(0.01);
+		//model.printDeltaProb(16);
 		//model.printMostProbableWords(1, 15);
 		System.out.println("Finished");
 	}
