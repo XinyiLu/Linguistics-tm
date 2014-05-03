@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -50,16 +51,17 @@ public class PLSA {
 	}
 	
 	ArrayList<ArrayList<Unit>> deltaMap;
-	//ArrayList<HashMap<String,Unit>> tauMap;
 	HashMap<String,Unit[]> tauMap;
 	ArrayList<HashSet<String>> docSet;
 	int numOfTopics;
+	Random rand;
 	
 	public PLSA(int num){
 		numOfTopics=num;
 		deltaMap=new ArrayList<ArrayList<Unit>>();
 		tauMap=new HashMap<String,Unit[]>();
 		docSet=new ArrayList<HashSet<String>>();
+		rand=new Random();
 	}
 	
 	public void parseTrainingFile(String fileName){
@@ -108,8 +110,13 @@ public class PLSA {
 		HashSet<String> docSubmap=docSet.get(doc);
 		for(String word:list){
 			docSubmap.add(word);
-			if(!tauMap.containsKey(word))
+			if(!tauMap.containsKey(word)){
 				tauMap.put(word,new Unit[numOfTopics]);
+				Unit[] unitArray=tauMap.get(word);
+				for(int t=0;t<numOfTopics;t++){
+					unitArray[t]=new Unit();
+				}
+			}
 		}
 		
 		return list.size();
@@ -119,16 +126,14 @@ public class PLSA {
 		for(String word:tauMap.keySet()){
 			Unit[] unitArray=tauMap.get(word);
 			for(int t=0;t<numOfTopics;t++){
-				unitArray[t]=new Unit(1.0,0);
+				unitArray[t].prob=1.0;
 			}
 		}
-		
-		Random rand=new Random();
-		double mean=1.0f;
-		double variance=0.02f;
+		double mean=1.0;
+		double variance=0.02;
 		for(ArrayList<Unit> docMap:deltaMap){
 			for(Unit unit:docMap){
-				unit.prob=mean+rand.nextGaussian()*variance;
+				unit.prob=mean+rand.nextDouble()*variance;
 			}
 			
 		}
@@ -147,7 +152,7 @@ public class PLSA {
 				}
 				
 				for(int topic=0;topic<numOfTopics;topic++){
-					double q=deltaSubmap.get(topic).prob*tauMap.get(word)[topic].prob/p;
+					double q=(deltaSubmap.get(topic).prob*tauMap.get(word)[topic].prob)/p;
 					deltaSubmap.get(topic).number+=q;
 					tauMap.get(word)[topic].number+=q;
 				}
@@ -222,7 +227,7 @@ public class PLSA {
 			EM();
 			cur=getLogLikelihood();
 			System.out.println(cur);
-		}while(Math.abs((cur-prev)/cur)>=precision);
+		}while(count<50||Math.abs((cur-prev)/cur)>=precision);
 		
 	}
 	
@@ -233,32 +238,35 @@ public class PLSA {
 		}
 	}
 	
+	@SuppressWarnings("unchecked")
+	public ArrayList<SmoothedUnit>[] getSmoothedTauProb(double theta){
+		ArrayList<SmoothedUnit>[] smoothedMap=new ArrayList[numOfTopics];
+		for(int t=0;t<numOfTopics;t++){
+			smoothedMap[t]=new ArrayList<SmoothedUnit>();
+		}
 		
-	/*public ArrayList<ArrayList<SmoothedUnit>> getSmoothedTauProb(double alpha){
-		ArrayList<ArrayList<SmoothedUnit>> smoothedMap=new ArrayList<ArrayList<SmoothedUnit>>();
-		for(HashMap<String,Unit> tauSubmap:tauMap){
+		for(String word:tauMap.keySet()){
 			double sum=0;
-			ArrayList<SmoothedUnit> newList=new ArrayList<SmoothedUnit>();
-			for(String word:tauSubmap.keySet()){
-				sum+=tauSubmap.get(word).number;
+			Unit[] unitArray=tauMap.get(word);
+			for(Unit unit:unitArray){
+				sum+=unit.number;
 			}
 			
-			for(String word:tauSubmap.keySet()){
-				double prob=(tauSubmap.get(word).number+alpha)/(sum+alpha*tauSubmap.size());
-				newList.add(new SmoothedUnit(word,prob));
+			for(int topic=0;topic<numOfTopics;topic++){
+				double tempProb=(unitArray[topic].number+theta)/(sum+theta*numOfTopics);
+				smoothedMap[topic].add(new SmoothedUnit(word,tempProb));
 			}
-			smoothedMap.add(newList);
 		}
 		return smoothedMap;
-	}*/
+	}
 	
-	/*public ArrayList<ArrayList<String>> getMostProbableWords(double alpha,int limit){
+	public ArrayList<ArrayList<String>> getMostProbableWords(double alpha,int limit){
 		
 		ArrayList<ArrayList<String>> result=new ArrayList<ArrayList<String>>();
-		ArrayList<ArrayList<SmoothedUnit>> smoothedMap=getSmoothedTauProb(alpha);
+		ArrayList<SmoothedUnit>[] smoothedMap=getSmoothedTauProb(alpha);
 		for(int topic=0;topic<numOfTopics;topic++){
 			PriorityQueue<SmoothedUnit> heap=new PriorityQueue<SmoothedUnit>(limit);
-			ArrayList<SmoothedUnit> sublist=smoothedMap.get(topic);
+			ArrayList<SmoothedUnit> sublist=smoothedMap[topic];
 			for(int i=0;i<sublist.size();i++){
 				SmoothedUnit unit=sublist.get(i);
 				if(heap.size()<limit){
@@ -271,14 +279,42 @@ public class PLSA {
 			}
 			ArrayList<String> list=new ArrayList<String>();
 			while(!heap.isEmpty()){
+				System.out.print(heap.peek().prob+"\t");
 				list.add(0,heap.poll().word);
 			}
+			System.out.println();
 			result.add(list);
 		}
 		return result;
-	}*/
+	}
 	
-	/*public void printMostProbableWords(double alpha,int limit){
+public ArrayList<ArrayList<String>> getMostProbableWordsArray(double alpha,int limit){
+		
+		ArrayList<ArrayList<String>> result=new ArrayList<ArrayList<String>>();
+		ArrayList<SmoothedUnit>[] smoothedMap=getSmoothedTauProb(alpha);
+		for(int topic=0;topic<numOfTopics;topic++){
+			ArrayList<SmoothedUnit> subList=smoothedMap[topic];
+			SmoothedUnit[] subArray=subList.toArray(new SmoothedUnit[subList.size()]);
+			Arrays.sort(subArray);
+			ArrayList<String> list=new ArrayList<String>();
+			for(int i=subArray.length-1;i>=subArray.length-limit;i--){
+				list.add(subArray[i].word);
+			}
+			result.add(list);
+		}
+		
+		for(int topic=0;topic<numOfTopics;topic++){
+			System.out.println("topic:"+topic);
+			ArrayList<String> sublist=result.get(topic);
+			for(String word:sublist){
+				System.out.print(word+"\t");
+			}
+			System.out.println();
+		}
+		return result;
+	}
+	
+	public void printMostProbableWords(double alpha,int limit){
 		ArrayList<ArrayList<String>> list=getMostProbableWords(alpha,limit);
 		for(int topic=0;topic<numOfTopics;topic++){
 			System.out.println("topic:"+topic);
@@ -288,14 +324,14 @@ public class PLSA {
 			}
 			System.out.println();
 		}
-	}*/
+	}
 	
 	public static void main(String[] args){
 		PLSA model=new PLSA(50);
 		model.parseTrainingFile(args[0]);
 		model.trainParameters(0.01);
 		//model.printDeltaProb(16);
-		//model.printMostProbableWords(1, 15);
+		model.printMostProbableWords(5, 15);
 		System.out.println("Finished");
 	}
 }
