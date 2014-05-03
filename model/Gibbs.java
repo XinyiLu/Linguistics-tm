@@ -235,7 +235,6 @@ public class Gibbs {
 	
 	
 	public double getLogLikelihood(){
-		updateProbs();
 		double sum=0;
 		
 		for(int doc=0;doc<numOfDocs;doc++){

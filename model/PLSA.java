@@ -54,14 +54,12 @@ public class PLSA {
 	HashMap<String,Unit[]> tauMap;
 	ArrayList<HashSet<String>> docSet;
 	int numOfTopics;
-	Random rand;
 	
 	public PLSA(int num){
 		numOfTopics=num;
 		deltaMap=new ArrayList<ArrayList<Unit>>();
 		tauMap=new HashMap<String,Unit[]>();
 		docSet=new ArrayList<HashSet<String>>();
-		rand=new Random();
 	}
 	
 	public void parseTrainingFile(String fileName){
@@ -82,6 +80,7 @@ public class PLSA {
 				}
 				doc++;
 			}
+			
 			//close the buffered reader
 			reader.close();
 
@@ -123,6 +122,7 @@ public class PLSA {
 	}
 	
 	public void initiateParameterMaps(){
+		Random rand=new Random();
 		for(String word:tauMap.keySet()){
 			Unit[] unitArray=tauMap.get(word);
 			for(int t=0;t<numOfTopics;t++){
@@ -133,7 +133,7 @@ public class PLSA {
 		double variance=0.02;
 		for(ArrayList<Unit> docMap:deltaMap){
 			for(Unit unit:docMap){
-				unit.prob=mean+rand.nextDouble()*variance;
+				unit.prob=mean+(rand.nextDouble()*2-1.0)*variance;
 			}
 			
 		}
@@ -148,7 +148,7 @@ public class PLSA {
 				double p=0;
 				ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
 				for(int topic=0;topic<numOfTopics;topic++){
-					p+=deltaSubmap.get(topic).prob*tauMap.get(word)[topic].prob;
+					p+=(deltaSubmap.get(topic).prob*tauMap.get(word)[topic].prob);
 				}
 				
 				for(int topic=0;topic<numOfTopics;topic++){
@@ -167,19 +167,19 @@ public class PLSA {
 				sum+=unit.number;
 			}
 			for(Unit unit:deltaSubmap){
-				unit.prob=unit.number/sum;
+				unit.prob=(unit.number/sum);
 			}
 		}
 		
 		for(int t=0;t<numOfTopics;t++){
-			int sum=0;
+			double sum=0;
 			for(String word:tauMap.keySet()){
 				sum+=tauMap.get(word)[t].number;
 			}
 			
 			for(String word:tauMap.keySet()){
 				Unit unit=tauMap.get(word)[t];
-				unit.prob=unit.number/sum;
+				unit.prob=(unit.number/sum);
 			}
 		}
 	}
@@ -187,13 +187,14 @@ public class PLSA {
 	public void setMapNumbersToZero(){
 		for(ArrayList<Unit> docMap:deltaMap){
 			for(Unit unit:docMap){
-				unit.number=0;
+				unit.number=0.0;
 			}
 		}
 		
 		for(String word:tauMap.keySet()){
-			for(Unit unit:tauMap.get(word)){
-				unit.number=0;
+			Unit[] tauList=tauMap.get(word);
+			for(Unit unit:tauList){
+				unit.number=0.0;
 			}
 		}
 	}
@@ -201,17 +202,18 @@ public class PLSA {
 	public double getLogLikelihood(){
 		double sum=0;
 		
-		for(int doc=0;doc<deltaMap.size();doc++){
+		for(int doc=0;doc<docSet.size();doc++){
 			ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
-			HashSet<String> docSubset=docSet.get(doc);	
+			HashSet<String> docSubset=docSet.get(doc);
 			for(String word:docSubset){
 				double wordProb=0;
 				for(int topic=0;topic<numOfTopics;topic++){
-					wordProb+=deltaSubmap.get(topic).prob*tauMap.get(word)[topic].prob;
+					wordProb+=(deltaSubmap.get(topic).prob*tauMap.get(word)[topic].prob);
 				}
 				sum+=Math.log(wordProb);
 			}
 		}
+		
 		
 		return sum;
 	}
@@ -282,7 +284,6 @@ public class PLSA {
 				System.out.print(heap.peek().prob+"\t");
 				list.add(0,heap.poll().word);
 			}
-			System.out.println();
 			result.add(list);
 		}
 		return result;
@@ -330,7 +331,7 @@ public ArrayList<ArrayList<String>> getMostProbableWordsArray(double alpha,int l
 		PLSA model=new PLSA(50);
 		model.parseTrainingFile(args[0]);
 		model.trainParameters(0.01);
-		//model.printDeltaProb(16);
+		model.printDeltaProb(16);
 		model.printMostProbableWords(5, 15);
 		System.out.println("Finished");
 	}

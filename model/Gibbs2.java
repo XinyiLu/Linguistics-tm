@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -121,15 +122,14 @@ public class Gibbs2 {
 	
 	public int saveLineToSet(int doc,String line){
 		String[] words=line.split(" ");
-		/*ArrayList<String> list=new ArrayList<String>();
+		ArrayList<String> list=new ArrayList<String>();
 		for(String word:words){
 			if(!word.isEmpty())
 				list.add(word);
-		}*/
-		
-		
+		}
+
 		HashMap<String,Topic> docSubmap=docSet[doc];
-		for(String word:words){
+		for(String word:list){
 			docSubmap.put(word,new Topic(numOfTopics));
 			for(int t=0;t<numOfTopics;t++){
 				HashMap<String,Unit> tempMap=tauMap[t];
@@ -138,7 +138,7 @@ public class Gibbs2 {
 			}
 		}
 		
-		return words.length-1;
+		return list.size();
 	}
 	
 	public void initiateParameterMaps(){
@@ -212,6 +212,7 @@ public class Gibbs2 {
 				tauSum[newTopic]++;
 				updateTopicProbs(doc,newTopic);
 			}
+			System.out.println(doc);
 		}
 	}
 	
@@ -237,7 +238,6 @@ public class Gibbs2 {
 	
 	
 	public double getLogLikelihood(){
-		updateProbs();
 		double sum=0;
 		
 		for(int doc=0;doc<numOfDocs;doc++){
@@ -260,13 +260,14 @@ public class Gibbs2 {
 		double prev=0;
 		double cur=0;
 		int count=0;
-		count++;
+
 		do{
+			count++;
 			prev=cur;
 			GibbsRecurringHelper();
 			cur=getLogLikelihood();
 			System.out.println(cur);
-		}while(count<50||Math.abs((cur-prev)/cur)>=precision);
+		}while(Math.abs((cur-prev)/cur)>=precision);
 		
 	}
 	
