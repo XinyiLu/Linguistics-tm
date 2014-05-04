@@ -52,14 +52,14 @@ public class PLSA {
 	
 	ArrayList<ArrayList<Unit>> deltaMap;
 	HashMap<String,Unit[]> tauMap;
-	ArrayList<HashSet<String>> docSet;
+	ArrayList<ArrayList<String>> docSet;
 	int numOfTopics;
 	
 	public PLSA(int num){
 		numOfTopics=num;
 		deltaMap=new ArrayList<ArrayList<Unit>>();
 		tauMap=new HashMap<String,Unit[]>();
-		docSet=new ArrayList<HashSet<String>>();
+		docSet=new ArrayList<ArrayList<String>>();
 	}
 	
 	public void parseTrainingFile(String fileName){
@@ -98,7 +98,7 @@ public class PLSA {
 		}
 		
 		if(doc==docSet.size()){
-			docSet.add(new HashSet<String>());
+			docSet.add(new ArrayList<String>());
 			ArrayList<Unit> deltaSubmap=new ArrayList<Unit>();
 			for(int i=0;i<numOfTopics;i++){
 				deltaSubmap.add(new Unit());
@@ -106,7 +106,7 @@ public class PLSA {
 			deltaMap.add(deltaSubmap);
 		}
 		
-		HashSet<String> docSubmap=docSet.get(doc);
+		ArrayList<String> docSubmap=docSet.get(doc);
 		for(String word:list){
 			docSubmap.add(word);
 			if(!tauMap.containsKey(word)){
@@ -143,7 +143,7 @@ public class PLSA {
 		//E-step
 		setMapNumbersToZero();
 		for(int doc=0;doc<docSet.size();doc++){
-			HashSet<String> wordSet=docSet.get(doc);
+			ArrayList<String> wordSet=docSet.get(doc);
 			for(String word:wordSet){
 				double p=0;
 				ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
@@ -204,7 +204,7 @@ public class PLSA {
 		
 		for(int doc=0;doc<docSet.size();doc++){
 			ArrayList<Unit> deltaSubmap=deltaMap.get(doc);
-			HashSet<String> docSubset=docSet.get(doc);
+			ArrayList<String> docSubset=docSet.get(doc);
 			for(String word:docSubset){
 				double wordProb=0;
 				for(int topic=0;topic<numOfTopics;topic++){
@@ -281,7 +281,6 @@ public class PLSA {
 			}
 			ArrayList<String> list=new ArrayList<String>();
 			while(!heap.isEmpty()){
-				System.out.print(heap.peek().prob+"\t");
 				list.add(0,heap.poll().word);
 			}
 			result.add(list);
