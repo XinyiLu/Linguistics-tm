@@ -56,7 +56,7 @@ public class Gibbs2 {
 	
 	Unit[][] deltaMap;
 	HashMap<String,Unit>[] tauMap;
-	HashMap<String,Topic>[] docSet;
+	HashMap<String,ArrayList<Topic>>[] docSet;
 	int numOfTopics;
 	int numOfDocs;
 	Random rand;
@@ -70,10 +70,10 @@ public class Gibbs2 {
 		numOfDocs=docs;
 		deltaMap=new Unit[docs][num];
 		tauMap=(HashMap<String,Unit>[])new HashMap[numOfTopics];
-		docSet=(HashMap<String,Topic>[])new HashMap[numOfDocs];
+		docSet=(HashMap<String,ArrayList<Topic>>[])new HashMap[numOfDocs];
 		
 		for(int doc=0;doc<docs;doc++){
-			docSet[doc]=new HashMap<String,Topic>();
+			docSet[doc]=new HashMap<String,ArrayList<Topic>>();
 			for(int t=0;t<num;t++){
 				deltaMap[doc][t]=new Unit();
 			}
