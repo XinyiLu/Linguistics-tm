@@ -5,8 +5,13 @@ import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.PriorityQueue;
 import java.util.Random;
+
+import model.PLSA.SmoothedUnit;
+import model.PLSA.Unit;
 
 public class Gibbs2 {
 
@@ -25,10 +30,17 @@ public class Gibbs2 {
 		}
 	}
 	
-	class Topic{
+	class TopicUnit{
+		String word;
 		int topic;
-		public Topic(int t){
+		public TopicUnit(String w,int t){
+			word=w;
 			topic=t;
+		}
+		
+		public TopicUnit(String w){
+			word=w;
+			topic=numOfTopics;
 		}
 	}
 	
@@ -56,7 +68,7 @@ public class Gibbs2 {
 	
 	Unit[][] deltaMap;
 	HashMap<String,Unit>[] tauMap;
-	HashMap<String,ArrayList<Topic>>[] docSet;
+	ArrayList<TopicUnit>[] docSet;
 	int numOfTopics;
 	int numOfDocs;
 	Random rand;
@@ -70,10 +82,10 @@ public class Gibbs2 {
 		numOfDocs=docs;
 		deltaMap=new Unit[docs][num];
 		tauMap=(HashMap<String,Unit>[])new HashMap[numOfTopics];
-		docSet=(HashMap<String,ArrayList<Topic>>[])new HashMap[numOfDocs];
+		docSet=(ArrayList<TopicUnit>[])new ArrayList[numOfDocs];
 		
 		for(int doc=0;doc<docs;doc++){
-			docSet[doc]=new HashMap<String,ArrayList<Topic>>();
+			docSet[doc]=new ArrayList<TopicUnit>();
 			for(int t=0;t<num;t++){
 				deltaMap[doc][t]=new Unit();
 			}
@@ -113,6 +125,7 @@ public class Gibbs2 {
 		}
 	}
 	
+	
 	public void initiateArray(Unit[] list){
 		for(int i=0;i<list.length;i++){
 			list[i]=new Unit();
@@ -128,9 +141,9 @@ public class Gibbs2 {
 				list.add(word);
 		}
 
-		HashMap<String,Topic> docSubmap=docSet[doc];
+		ArrayList<TopicUnit> docSubmap=docSet[doc];
 		for(String word:list){
-			docSubmap.put(word,new Topic(numOfTopics));
+			docSubmap.add(new TopicUnit(word));
 			for(int t=0;t<numOfTopics;t++){
 				HashMap<String,Unit> tempMap=tauMap[t];
 				if(!tempMap.containsKey(word))
@@ -143,14 +156,15 @@ public class Gibbs2 {
 	
 	public void initiateParameterMaps(){
 		for(int doc=0;doc<numOfDocs;doc++){
-			HashMap<String,Topic> words=docSet[doc];
+			ArrayList<TopicUnit> wordsMap=docSet[doc];
 			Unit[] deltaSubmap=deltaMap[doc];
-			for(String word:words.keySet()){
+			for(TopicUnit unit:wordsMap){				
 				int topic=rand.nextInt(numOfTopics);
-				tauMap[topic].get(word).number++;
+				tauMap[topic].get(unit.word).number++;
 				deltaSubmap[topic].number++;
-				words.get(word).topic=topic;
+				unit.topic=topic;
 				tauSum[topic]++;
+				
 			}
 		}
 		
@@ -197,22 +211,22 @@ public class Gibbs2 {
 	
 	public void GibbsRecurringHelper(){
 		for(int doc=0;doc<numOfDocs;doc++){
-			HashMap<String,Topic> words=docSet[doc];
+			ArrayList<TopicUnit> words=docSet[doc];
 			Unit[] deltaSubmap=deltaMap[doc];
-			for(String word:words.keySet()){
-				int topic=words.get(word).topic;
-				tauMap[topic].get(word).number--;
+			for(TopicUnit unit:words){
+				int topic=unit.topic;
+				tauMap[topic].get(unit.word).number--;
 				deltaSubmap[topic].number--;
 				tauSum[topic]--;
 				updateTopicProbs(doc,topic);
-				int newTopic=getRandomTopicForWord(doc,word);
-				words.get(word).topic=newTopic;
+				int newTopic=getRandomTopicForWord(doc,unit.word);
+				unit.topic=newTopic;
 				deltaSubmap[newTopic].number++;
-				tauMap[newTopic].get(word).number++;
+				tauMap[newTopic].get(unit.word).number++;
 				tauSum[newTopic]++;
 				updateTopicProbs(doc,newTopic);
+				
 			}
-			System.out.println(doc);
 		}
 	}
 	
@@ -242,11 +256,11 @@ public class Gibbs2 {
 		
 		for(int doc=0;doc<numOfDocs;doc++){
 			Unit[] deltaSubmap=deltaMap[doc];
-			HashMap<String,Topic> docSubset=docSet[doc];	
-			for(String word:docSubset.keySet()){
+			ArrayList<TopicUnit> docSubset=docSet[doc];	
+			for(TopicUnit unit:docSubset){
 				double wordProb=0;
 				for(int topic=0;topic<numOfTopics;topic++){
-					wordProb+=deltaSubmap[topic].prob*tauMap[topic].get(word).prob;
+					wordProb+=deltaSubmap[topic].prob*tauMap[topic].get(unit.word).prob;
 				}
 				sum+=Math.log(wordProb);
 			}
@@ -260,7 +274,6 @@ public class Gibbs2 {
 		double prev=0;
 		double cur=0;
 		int count=0;
-
 		do{
 			count++;
 			prev=cur;
@@ -278,6 +291,91 @@ public class Gibbs2 {
 		}
 	}
 	
+	@SuppressWarnings("unchecked")
+	public ArrayList<SmoothedUnit>[] getSmoothedTauProb(double theta){
+		ArrayList<SmoothedUnit>[] smoothedMap=new ArrayList[numOfTopics];
+		for(int t=0;t<numOfTopics;t++){
+			smoothedMap[t]=new ArrayList<SmoothedUnit>();
+		}
+		
+		for(int topic=0;topic<numOfTopics;topic++){
+			HashMap<String,Unit> submap=tauMap[topic];
+			double sum=0;
+			for(String word:submap.keySet()){
+				sum+=submap.get(word).number;
+			}
+			for(String word:submap.keySet()){
+				Unit unit=submap.get(word);
+				double tempProb=(unit.number+theta)/(sum+theta*numOfTopics);
+				smoothedMap[topic].add(new SmoothedUnit(word,tempProb));
+			}
+		}
+		return smoothedMap;
+	}
+	
+	public ArrayList<ArrayList<String>> getMostProbableWords(double alpha,int limit){
+		
+		ArrayList<ArrayList<String>> result=new ArrayList<ArrayList<String>>();
+		ArrayList<SmoothedUnit>[] smoothedMap=getSmoothedTauProb(alpha);
+		for(int topic=0;topic<numOfTopics;topic++){
+			PriorityQueue<SmoothedUnit> heap=new PriorityQueue<SmoothedUnit>(limit);
+			ArrayList<SmoothedUnit> sublist=smoothedMap[topic];
+			for(int i=0;i<sublist.size();i++){
+				SmoothedUnit unit=sublist.get(i);
+				if(heap.size()<limit){
+					heap.add(unit);
+					continue;
+				}else if(heap.peek().prob<unit.prob){
+					heap.poll();
+					heap.add(unit);
+				}
+			}
+			ArrayList<String> list=new ArrayList<String>();
+			while(!heap.isEmpty()){
+				list.add(0,heap.poll().word);
+			}
+			result.add(list);
+		}
+		return result;
+	}
+	
+public ArrayList<ArrayList<String>> getMostProbableWordsArray(double alpha,int limit){
+		
+		ArrayList<ArrayList<String>> result=new ArrayList<ArrayList<String>>();
+		ArrayList<SmoothedUnit>[] smoothedMap=getSmoothedTauProb(alpha);
+		for(int topic=0;topic<numOfTopics;topic++){
+			ArrayList<SmoothedUnit> subList=smoothedMap[topic];
+			SmoothedUnit[] subArray=subList.toArray(new SmoothedUnit[subList.size()]);
+			Arrays.sort(subArray);
+			ArrayList<String> list=new ArrayList<String>();
+			for(int i=subArray.length-1;i>=subArray.length-limit;i--){
+				list.add(subArray[i].word);
+			}
+			result.add(list);
+		}
+		
+		for(int topic=0;topic<numOfTopics;topic++){
+			System.out.println("topic:"+topic);
+			ArrayList<String> sublist=result.get(topic);
+			for(String word:sublist){
+				System.out.print(word+"\t");
+			}
+			System.out.println();
+		}
+		return result;
+	}
+	
+	public void printMostProbableWords(double alpha,int limit){
+		ArrayList<ArrayList<String>> list=getMostProbableWords(alpha,limit);
+		for(int topic=0;topic<numOfTopics;topic++){
+			System.out.println("topic:"+topic);
+			ArrayList<String> sublist=list.get(topic);
+			for(String word:sublist){
+				System.out.print(word+"\t");
+			}
+			System.out.println();
+		}
+	}
 	
 	public static void main(String[] args){
 		Gibbs2 model=new Gibbs2(50,0.5,1000);
@@ -285,7 +383,7 @@ public class Gibbs2 {
 		System.out.println("File Parsed");
 		model.trainParameters(0.01);
 		model.printDeltaProb(16);
-		//model.printMostProbableWords(1, 15);
+		model.printMostProbableWords(1, 15);
 		System.out.println("Finished");
 	}
 }
