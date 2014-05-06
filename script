@@ -1,0 +1,2 @@
+javac model/*.java
+./topicmod data/news1000.txt

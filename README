@@ -1,0 +1,22 @@
+			       Topic Modeling using Gibbs Sampling
+
+This project uses Gibbs Sampling, which provides a computational method that allows the program to find the model parameters required, for our topic model. 
+
+List of files:
+model/Gibbs.java  This java file implemented the Gibbs Sampling on Topic Model. Since we already know the number of articles and the number of topics for the training data in advance, to speed up a little bit, I used arrays as much as possible. Firstly, there is a two-dimentional array called deltaMap to save p(t|d), the first dimention is the index of the article from 0-999. Secondly, 
+an array of HashMap called tauMap is used for p(w|t), with the index in the array represents the topic from 0-49. Thirdly, I used an array of ArrayList to save all the data in the training set.The index in array represents which article it belongs to, while the ArrayList saves all the words as well as the topic they are assigned to individually. It takes about 24 minutes to finish(10 iterations) on my laptop. 
+
+model/PLSA.java This java file implemented the PLSA method for Topic Model. It takes about 50 seconds to run(50 iterations) on my laptop.
+
+topicmod Script to run Gibbs Sampling program.
+
+plsa Script to run PLSA program.
+
+script  The script to compile java files and run Gibbs Sampling on data/news1000.txt
+
+
+To compile this program, run:
+javac model/*.java
+
+
+

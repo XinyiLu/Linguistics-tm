@@ -7,7 +7,6 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Random;
 
@@ -218,19 +217,16 @@ public class PLSA {
 		return sum;
 	}
 	
-	public void trainParameters(double precision){
+	public double trainParameters(){
 		initiateParameterMaps();
-		double prev=0;
 		double cur=0;
 		int count=0;
 		do{
 			count++;
-			prev=cur;
 			EM();
 			cur=getLogLikelihood();
-			System.out.println(cur);
-		}while(count<50||Math.abs((cur-prev)/cur)>=precision);
-		
+		}while(count<50);
+		return cur;
 	}
 	
 	public void printDeltaProb(int doc){
@@ -317,7 +313,6 @@ public ArrayList<ArrayList<String>> getMostProbableWordsArray(double alpha,int l
 	public void printMostProbableWords(double alpha,int limit){
 		ArrayList<ArrayList<String>> list=getMostProbableWords(alpha,limit);
 		for(int topic=0;topic<numOfTopics;topic++){
-			System.out.println("topic:"+topic);
 			ArrayList<String> sublist=list.get(topic);
 			for(String word:sublist){
 				System.out.print(word+"\t");
@@ -329,10 +324,12 @@ public ArrayList<ArrayList<String>> getMostProbableWordsArray(double alpha,int l
 	public static void main(String[] args){
 		PLSA model=new PLSA(50);
 		model.parseTrainingFile(args[0]);
-		model.trainParameters(0.01);
+		System.out.println("The log likelihood of the data:");
+		System.out.println(model.trainParameters());
+		System.out.println("The probability of topics for article 17:");
 		model.printDeltaProb(16);
+		System.out.println("The most probable 15 words w for each topic:");
 		model.printMostProbableWords(5, 15);
-		System.out.println("Finished");
 	}
 }
 
