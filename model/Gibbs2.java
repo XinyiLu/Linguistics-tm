@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.PriorityQueue;
 import java.util.Random;
 
-import model.PLSA.SmoothedUnit;
-import model.PLSA.Unit;
 
 public class Gibbs2 {
 
@@ -279,7 +277,7 @@ public class Gibbs2 {
 			GibbsRecurringHelper();
 			cur=getLogLikelihood();
 			System.out.println(cur);
-		}while(Math.abs((cur-prev)/cur)>=precision);
+		}while(count<10||Math.abs((cur-prev)/cur)>=precision);
 		
 	}
 	
